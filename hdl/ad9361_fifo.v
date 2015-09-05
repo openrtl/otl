@@ -20,53 +20,67 @@
 module ad9361_fifo
 (
  //inputs
- wr_data, wr_clk, wr_en,
+ wr_data, wr_clk, wr_en, rd_clock,
+ rd_en, reset,
  
  //outputs
+ rd_data, almost_empty, amlost_full,
+ empty, full
  
  );
 
 
+   // Write signals
+   input [31:0] wr_data;
+   input wr_clk;
+   input wr_en;
+   
+   // Read signals
+   output [31:0] rd_data;
+   input rd_clock;
+   input rd_en;
+
+   // Reset
+   input reset;
+   
+   // Status flags
+   output almost_empty;
+   output amlost_full;
+   output empty;
+   output full;
+   
    
    FIFO18E1 #
      (
-      .ALMOST_EMPTY_OFFSET(13'h0080), // Sets the almost empty threshold
-      .ALMOST_FULL_OFFSET(13'h0080), // Sets almost full threshold
-      .DATA_WIDTH(4), // Sets data width to 4-36
-      .DO_REG(1), // Enable output register (1-0) Must be 1 if EN_SYN = FALSE
-      .EN_SYN("FALSE"), // Specifies FIFO as dual-clock (FALSE) or Synchronous (TRUE)
-      .FIFO_MODE("FIFO18"), // Sets mode to FIFO18 or FIFO18_36
-      .FIRST_WORD_FALL_THROUGH("FALSE"), // Sets the FIFO FWFT to FALSE, TRUE
-      .INIT(36'h000000000), // Initial values on output port
-      .SIM_DEVICE("7SERIES"), // Must be set to "7SERIES" for simulation behavior
-      .SRVAL(36'h000000000) // Set/Reset value for output port
+      .ALMOST_EMPTY_OFFSET(13'h0080),
+      .ALMOST_FULL_OFFSET(13'h0080),
+      .DATA_WIDTH(36),
+      .DO_REG(1), // Must be 1 if EN_SYN = FALSE
+      .EN_SYN("FALSE"), // dual clock
+      .FIFO_MODE("FIFO18"),
+      .FIRST_WORD_FALL_THROUGH("TRUE"),
+      .INIT(36'h000000000), 
+      .SIM_DEVICE("7SERIES"),
+      .SRVAL(36'h000000000)
       )
    FIFO18E1_inst
      (
-      // Read Data: 32-bit (each) output: Read output data
-      .DO(wr_data), // 32-bit output: Data output
-      .DOP(), // 4-bit output: Parity data output
-      // Status: 1-bit (each) output: Flags and other FIFO status outputs
-      .ALMOSTEMPTY(almost_empty),
-      .ALMOSTFULL(almost_full),
-      .EMPTY(empty),
-      .FULL(full), 
-      .RDCOUNT(), // 12-bit output: Read count
-      .RDERR(), // 1-bit output: Read error
-      .WRCOUNT(), // 12-bit output: Write count
-      .WRERR(), // 1-bit output: Write error
-      // Read Control Signals: 1-bit (each) input: Read clock, enable and reset input signals
-      .RDCLK(rd_clk), // 1-bit input: Read clock
-      .RDEN(rd_en), // 1-bit input: Read enable
-      .REGCE(rd_ce), // 1-bit input: Clock enable
-      .RST(reset), // 1-bit input: Asynchronous Reset
-      .RSTREG(RSTREG), // 1-bit input: Output register set/reset
-      // Write Control Signals: 1-bit (each) input: Write clock and enable input signals
-      .WRCLK(wr_clk), // 1-bit input: Write clock
-      .WREN(wr_en), // 1-bit input: Write enable
-      // Write Data: 32-bit (each) input: Write input data
-      .DI(rd_data), // 32-bit input: Data input
-      .DIP() // 4-bit input: Parity input
-      );
+      .DO(rd_data),  // read data
+      .DOP(),
+      .ALMOSTEMPTY(almost_empty), // programable empty flag
+      .ALMOSTFULL(almost_full),   // programable full flag
+      .EMPTY(empty), // fifo empty
+      .FULL(full),   // fifo full
+      .RDCOUNT(), 
+      .RDERR(), 
+      .WRCOUNT(), 
+      .WRERR(),
+      .RDCLK(rd_clk), // read clock
+      .RDEN(rd_en),   // read enable
+      .RST(reset),    // async reset
+      .WRCLK(wr_clk), // write clock 
+      .WREN(wr_en),   // write enable
+      .DI(wr_data),   // write data
+      .DIP());
    
 endmodule
