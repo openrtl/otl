@@ -1,2 +1,2 @@
 # OTL - Open Transceiver Logic
-![alt tag](docs/ad9361.png)
+![alt tag](docs/otl_overview.png)
