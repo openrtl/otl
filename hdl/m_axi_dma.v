@@ -16,7 +16,7 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-module axi_dma
+module m_axi_dma
   (
    //inouts
    m_axi_aclk, m_axi_aresetn, m_axi_awready, m_axi_wready,
