@@ -17,7 +17,7 @@
  */
 
 //TODO: Add idealy
-module adc_rx
+module otl_adc_rx
   (
    //inputs
    rx_data_p, rx_data_n, rx_clk_p, rx_clk_n,
@@ -34,6 +34,8 @@ module adc_rx
 
    output [11:0] rx_data;
    output 	 rx_frame;
+   output 	 rx_clk;
+   
    
 
    //----------------------------

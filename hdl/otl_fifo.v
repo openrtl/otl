@@ -17,7 +17,7 @@
  */
 
 
-module ad9361_fifo
+module otl_fifo
 (
  //inputs
  wr_data, wr_clk, wr_en, rd_clock,

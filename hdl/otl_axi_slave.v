@@ -1,5 +1,5 @@
 /*
- *  Copyright 2015 (c) Patrik Lindstr�m, lindstroeem@gmail.com
+ *  Copyright 2015 (c) Patrik Lindström, lindstroeem@gmail.com
  * 
  * 
  *  This program is free software: you can redistribute it and/or modify
@@ -17,26 +17,25 @@
  */
 
 
-module s_axi_config
+module otl_axi_slave
   (
    //inputs
    s_axi_aclk, s_axi_aresetn, s_axi_awaddr,
    s_axi_awprot, s_axi_awvalid, s_axi_wdata,
    s_axi_wstrb, s_axi_wvalid, s_axi_bready,
    s_axi_araddr, s_axi_arprot, s_axi_arvalid,
-   s_axi_rready, m_rdata,
+   s_axi_rready, m_rdata, m_wready, m_rdvalid,
  
    //ouputs
    s_axi_awready, s_axi_wready, s_axi_bresp,
    s_axi_bvalid, s_axi_arready, s_axi_rdata,
-   s_axi_rresp, s_axi_rvalid,
-   
-   m_addr, m_wdata, m_wstrb
+   s_axi_rresp, s_axi_rvalid, m_wraddr, m_wdata, 
+   m_wrvalid, m_rdaddr, m_rdready 
 
  );
 
-   parameter ADDR_WIDTH = 32;
-   parameter DATA_WIDTH = 32;
+   parameter ADDRW = 32;
+   parameter DATAW = 32;
    
    
    
@@ -46,15 +45,15 @@ module s_axi_config
    
    
    // axi write address channle
-   input wire [ADDR_WIDTH -1:0]    s_axi_awaddr;
+   input wire [ADDRW -1:0]    s_axi_awaddr;
    input wire [2:0] 		   s_axi_awprot;
    input wire 			   s_axi_awvalid;
    output reg 			   s_axi_awready;
    
    
    // Axi write data channle
-   input wire [DATA_WIDTH-1:0] 	   s_axi_wdata;
-   input wire [DATA_WIDTH/8 -1:0]  s_axi_wstrb;
+   input wire [DATAW-1:0] 	   s_axi_wdata;
+   input wire [DATAW/8 -1:0]  s_axi_wstrb;
    input wire 			   s_axi_wvalid;
    output reg 			   s_axi_wready;
    
@@ -64,26 +63,32 @@ module s_axi_config
    input wire 			   s_axi_bready;
    
    // Axi read address channle
-   input wire [ADDR_WIDTH -1:0]    s_axi_araddr;
+   input wire [ADDRW -1:0]    s_axi_araddr;
    input wire [2:0] 		   s_axi_arprot;
    input wire 			   s_axi_arvalid;
    output reg 			   s_axi_arready;
    
    // Axi read data channle
-   output reg [DATA_WIDTH-1:0] 	   s_axi_rdata;
+   output reg [DATAW-1:0] 	   s_axi_rdata;
    output reg [1:0] 		   s_axi_rresp;
    output reg 			   s_axi_rvalid;
    input wire 			   s_axi_rready;
    
    // Memory interface
-   output wire [ADDR_WIDTH-1:0]    m_addr;
-   input wire [DATA_WIDTH-1:0] 	   m_rdata;
-   output reg [DATA_WIDTH-1:0] 	   m_wdata;
-   output reg 			   m_wstrb;
+   output wire [ADDRW-1:0] 	   m_wraddr;
+   output reg [DATAW-1:0] 	   m_wrdata;
+   output reg 			   m_wrvalid;
+   input 			   m_wrready;
+   
+   input wire [ADDRW-1:0] 	   m_rdaddr;
+   output reg [DATAW-1:0] 	   m_rddata;
+   input 			   m_rdvalid;
+   output reg 			   m_rdready;
+   
    
 	   
-   reg [ADDR_WIDTH-1:0] 	   rd_addr;
-   reg [ADDR_WIDTH-1:0] 	   wr_addr;
+   reg [ADDRW-1:0] 	   rd_addr;
+   reg [ADDRW-1:0] 	   wr_addr;
 
    
 

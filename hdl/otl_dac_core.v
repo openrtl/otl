@@ -17,8 +17,16 @@
  */
 
 
-module adc_rx
-  (
- 
+module otl_dac_core
+(
+ //inputs
+
+ //outputs
+
+ );
+   
+
+//TODO
+   
    
 endmodule

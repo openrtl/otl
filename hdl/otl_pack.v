@@ -17,14 +17,51 @@
  */
 
 
-module dac_unpack
-(
- //inputs
+module otl_pack
+  (
+   // inputs
+   data_i, frame_i, clk,
 
- //outputs
+   // outputs
+   data_o, frame_o
+   );
 
- );
+
+   // RX signals
+   input [11:0] data_i;
+   input 	frame_i;
+   input 	clk;
    
-//TODO
+   // ADC signals
+   output [31:0] data_o;
+   output reg  	 frame_o;
+   
+
+   reg [31:0] 	 data;
+     
+   reg [0:0] 	 data_ptr;
+
+   // data pointer
+   always @ (posedge rx_clk)
+     if (~rx_frame)
+       data_ptr <= 1'b0;
+     else
+       data_ptr <= data_ptr +1;
+
+   // adc frame signal
+   always @ (posedge rx_clk)
+     frame_o <= data_ptr & frame_i & ~frame_o;
+   
+   always @ (*)
+        case (data_ptr)
+	 1'b0:
+	   data[31:16] <= {4'b0,data_i};
+	 1'b1:
+	   data[15:0] <= {4'b0,data_i};
+       endcase
+
+   assign data_o = data;
+   
+   
    
 endmodule

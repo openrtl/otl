@@ -16,55 +16,66 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-module register_map
+module otl_cfg_mem
   (
    //inputs
-   wr_addr, wr_data, wr_strb,
-   rd_addr,clk, reset, 
+   wraddr, wrdata, wrvalid, rdready,
+   rdaddr, clk, reset, 
 
    //outputs
-   rd_data, mem_expose
+   rddata, rdvalid, wrready mem_expose
    );
 
-   parameter MEM_WIDTH = 32;
-   parameter ADDR_WIDTH = 4;
+   parameter DATAW = 32;
+   parameter ADDRW = 4;
 
    //Read signals
-   input [ADDR_WIDTH-1 : 0]     rd_addr;
-   output reg [MEM_WIDTH-1 :0 ] rd_data;
+   input [ADDRW-1 : 0]     rdaddr;
+   output reg [DATAW-1 :0 ] rddata;
+   output 		   rdvalid;
+   input 		   rdready;
+   
    
    //Write signals
-   input [ADDR_WIDTH-1 : 0] 	wr_addr;
-   input [MEM_WIDTH-1 : 0] 	wr_data;
-   input 			wr_strb; //byte select?
+   input [ADDRW-1 : 0] 	wraddr;
+   input [DATAW-1 : 0] 	wrdata;
+   input 		wrvalid;
+   output 		wrready;
+   
    
    //Clock and reset
    input 			clk;
    input 			reset;
 
-   output [MEM_WIDTH-1:0] 	mem_expose [1<<ADDR_WIDTH-1 : 0];
+   output [DATAW-1:0] 	mem_expose [1<<ADDRW-1 : 0];
    
    
-   reg [MEM_WIDTH-1:0] 		memory [1<<ADDR_WIDTH-1 : 0];
+   reg [DATAW-1:0] 		memory [1<<ADDRW-1 : 0];
 
 
    //Memory expose port
    assign mem_expose = memory;
+
+   assign wrready = 1'b1; // Always ready
    
    
    //Write logic
    always @ (posedge clk)
      if(reset)
        memory <= 0;
-     else if(wr_strb) //byte select?
-       memory[wr_addr] <= wr_data;
+     else if(wrvalid)
+       memory[wraddr] <= wrdata;
 
    //Read logic
    always @ (posedge clk)
      if(reset) // not needed?
-       rd_data <= 'b0;
+       rddata <= 'b0;
+     else if(rd_ready) begin
+	rddata <= memory[rdaddr];
+	rdvalid <= 1'b1;
+     end
      else
-       rd_data <= memory[rd_addr];
+       rdvalid <= 1'b0;
    
    
    

@@ -17,14 +17,40 @@
  */
 
 
-module dac_tx
-(
- //inputs
+module otl_adc_core
+  (  
+     // Inputs
+     clk, reset, enable,
+     dma_wrdata, dma_wraddr, dma_wrvalid,
+     fifo_full, fifo_rddata,
 
- //outputs
+     // Outputs
+     dma_wrready, fifo_rden 
+   );
+   
+   parameter ADDRW = 32;
+   parameter DATAW = 32;
 
- );
+   input clk;
+   input reset;
+   input enable;
+      
+   input [DATAW-1:0]   dma_wrdata;
+   input [ADDRW-1:0]   dma_wraddr;
+   input 	       dma_wrvalid;
+   output 	       dma_wrready;
+
+   input 	       fifo_full;
+   input [DATAW-1:0]   fifo_rddata;
+   output 	       fifo_rden;
    
-//TODO
    
+   assign dma_wrdata = fifo_rddata;
+   assign dma_wrready = (enable & fifo_full & dma_wrvalid);
+
+   assign fifo_rden = (enable & fifo_full & dma_wrvalid);
+			 
+       
+       
+
 endmodule

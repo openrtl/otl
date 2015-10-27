@@ -16,14 +16,15 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-module m_axi_dma
+module otl_axi_dma
   (
-   //inouts
+   //inputs
    m_axi_aclk, m_axi_aresetn, m_axi_awready, m_axi_wready,
    m_axi_bid, m_axi_bresp, m_axi_buser, m_axi_bvalid,
-   m_axi_arready, dma_wraddr, dma_wrinit, dma_wrdata,
-   m_axi_rid, m_axi_rdata, m_axi_rresp, m_axi_rlast,
-   m_axi_ruser, m_axi_rvalid, dma_rdaddr, dma_rdinit,
+   m_axi_arready, m_axi_rid, m_axi_rdata, m_axi_rresp, 
+   m_axi_rlast, m_axi_ruser, m_axi_rvalid, otl_rdaddr, 
+   otl_rdready, otl_wraddr, otl_wrvalid, otl_wrdata, otl_wrlen,
+   otl_rdlen,
 
    //outputs
    m_axi_awid, m_axi_awaddr, m_axi_awlen, m_axi_awsize,
@@ -33,13 +34,13 @@ module m_axi_dma
    m_axi_bready, m_axi_arid, m_axi_araddr, m_axi_arlen,
    m_axi_arsize, m_axi_arburst, m_axi_arlock, m_axi_arcache,
    m_axi_arprot, m_axi_arqos, m_axi_aruser, m_axi_arvalid,
-   m_axi_rready, dma_rddata, dma_rdvalid, dma_wrready
+   m_axi_rready, otl_rddata, otl_rdvalid, otl_wrready
    );
    
-   parameter  BURST_LENGTH	        = 16;
-   parameter  ID_WIDTH	                = 1;
+   parameter  BURSTL	        = 16;
+   parameter  ID_WIDTH	                = 12;
    parameter  DATA_WIDTH                = 32;
-   parameter BURST_LENGTH_LOG = clog2(BURST_LENGTH-1);
+  
    
 
    
@@ -99,33 +100,39 @@ module m_axi_dma
    output reg 			     m_axi_rready;
    
    // dma read channel
-   input wire [31:0] 		     dma_rdaddr;
-   input wire [] 		     dma_rdlen;
-   input wire 			     dma_rdinit;
-   output wire [DATA_WIDTH-1 : 0]    dma_rddata;
-   output wire 			     dma_rdvalid;
+   input wire [31:0] 		     otl_rdaddr;
+   input wire [31:0] 		     otl_rdlen;
+   input wire 			     otl_rdready;
+   output wire [DATA_WIDTH-1 : 0]    otl_rddata;
+   output wire 			     otl_rdvalid;
    
    // dma write channel
-   input wire [31:0] 		     dma_wraddr;
-   input wire [] 		     dma_wrlen;
-   input wire 			     dma_wrinit;
-   input wire [DATA_WIDTH-1 : 0]     dma_wrdata;
-   output wire 			     dma_wrready;
+   input wire [31:0] 		     otl_wraddr;
+   input wire [31:0] 		     otl_wrlen;
+   input wire 			     otl_wrvalid;
+   input wire [DATA_WIDTH-1 : 0]     otl_wrdata;
+   output wire 			     otl_wrready; //TODO: implement?
    
+`define otl_log2(x) \
+   (x <= 2) ? 1 : \
+   (x <= 4) ? 2 : \
+   (x <= 8) ? 3 : \
+   (x <= 16) ? 4 : \
+   (x <= 32) ? 5 : \
+   (x <= 64) ? 6 : \
+   (x <= 128) ? 7 : \
+   (x <= 256) ? 8 : \
+   1
 
-   // Move to include file?
-   function integer clogb2 (input integer bit_depth);              
-      begin                                                           
-	 for(clogb2=0; bit_depth>0; clogb2=clogb2+1)                   
-	   bit_depth = bit_depth >> 1;                                 
-      end                                                           
-   endfunction                                                     
+   
+   
+   localparam BURSTL_LOG = `otl_log2(BURSTL);
 
-
+   
    // State machine
    `define IDLE        1'b0
    `define INIT_WRITE  1'b1
-   `define IDLE_READ   1'b1  
+   `define INIT_READ   1'b1  
    reg  	                write_state;
    reg 		                read_state;
    
@@ -133,15 +140,15 @@ module m_axi_dma
    
    //write counter
    reg [31 : 0] 		write_counter; //TODO: check vector width
-   reg [BURST_LENGTH_LOG-1 : 0] write_burst_counter;
+   reg [BURSTL_LOG-1 : 0] write_burst_counter;
    
 
    //read counter
    reg [31 : 0] 		read_counter; //TODO: check vector width
-   //reg [BURST_LENGTH_LOG-1 : 0] read_burst_counter;
+   //reg [BURSTL_LOG-1 : 0] read_burst_counter;
    
    //size of C_M_AXI_BURST_LEN length burst in bytes
-   wire [C_TRANSACTIONS_NUM+2 : 0] burst_size_bytes;
+   wire [31 : 0] burst_size_bytes;
 
    reg 				   start_write_burst;
    reg 				   start_read_burst;
@@ -166,12 +173,12 @@ module m_axi_dma
    // Initial write signals
    reg 				   init_write_d;
    reg 				   init_write_dd;
-   wire 			   init_wire_pulse;
+   wire 			   init_write_pulse;
 
 
    // write address channel
    assign m_axi_awid	= 'b0;
-   assign m_axi_awsize	= clogb2((DATA_WIDTH/8)-1);
+   assign m_axi_awsize	= `otl_log2((DATA_WIDTH/8));
    assign m_axi_awburst	= 2'b01;
    assign m_axi_awlock	= 1'b0;
    assign m_axi_awcache	= 4'b0010;
@@ -186,7 +193,7 @@ module m_axi_dma
    
    // read address channel
    assign m_axi_arid	= 'b0;
-   assign m_axi_arsize	= clogb2((DATA_WIDTH/8)-1);
+   assign m_axi_arsize	= `otl_log2((DATA_WIDTH/8));
    assign m_axi_arburst	= 2'b01;
    assign m_axi_arlock	= 1'b0;
    assign m_axi_arcache	= 4'b0010;
@@ -194,8 +201,13 @@ module m_axi_dma
    assign m_axi_arqos	= 4'h0;
    assign m_axi_aruser	= 'b1;
 
+
+   assign otl_wrready = w_ack;
+   
+
+   
    //Burst size in bytes
-   assign burst_size_bytes	= BURST_LENGTH * DATA_WIDTH/8; //Constant?
+   assign burst_size_bytes	= BURSTL * DATA_WIDTH/8; //Constant?
 
 
    assign init_read_pulse	= (!init_read_dd) && init_read_d;
@@ -216,10 +228,10 @@ module m_axi_dma
 	else                                                                       
 	  begin
 	     //read
-	     init_read_d <= dma_rdinit;
+	     init_read_d <= otl_rdready;
 	     init_read_dd <= init_read_d;
 	     //write
-             init_write_d <= dma_wrinit;
+             init_write_d <= otl_wrvalid;
 	     init_write_dd <= init_write_d;                                            
 	  end                                                                      
      end 
@@ -234,22 +246,19 @@ module m_axi_dma
 
    // awvalid logic
    always @(posedge m_axi_aclk)                                   
-     begin                                                                
-	if (~m_axi_aresetn || init_write_pulse )                                           
-	  begin                                                            
-	     m_axi_awvalid <= 1'b0;                                           
-	  end                                                              
-	else if (~m_axi_awvalid && start_write_burst)                 
-	  begin                                                            
-	     m_axi_awvalid <= 1'b1;                                           
-	  end                                                              
-	else if (aw_ack)                             
-	  begin                                                            
-	     m_axi_awvalid <= 1'b0;                                           
-	  end                                                              
-	else                                                               
-	  m_axi_awvalid <= m_axi_awvalid;                                      
-     end
+     // Reset
+     if (~m_axi_aresetn || init_write_pulse )                                           
+       m_axi_awvalid <= 1'b0;                                           
+     
+     else if (~m_axi_awvalid && start_write_burst)                 
+       m_axi_awvalid <= 1'b1;                                           
+   
+     else if (aw_ack)                             
+       m_axi_awvalid <= 1'b0;                                           
+   
+     else                                                               
+       m_axi_awvalid <= m_axi_awvalid;                                      
+   
 
 
    //awlen logic
@@ -257,10 +266,10 @@ module m_axi_dma
      if (~m_axi_aresetn || init_write_pulse)
        m_axi_awlen <= 8'b0;
      else if (start_write_burst)
-       if(dma_wrlen - write_counter < BURST_LENGTH) //TODO: do this better...
-	 m_axi_awlen <= dma_wrlen - write_counter;
+       if(write_counter < BURSTL) 
+	 m_axi_awlen <= write_counter;
        else
-	 m_axi_awlen <= BURST_LENGTH -1;
+	 m_axi_awlen <= BURSTL -1;
      else
        m_axi_awlen <= m_axi_awlen;
    
@@ -272,7 +281,7 @@ module m_axi_dma
      begin                                                                
 	if (~m_axi_aresetn || init_write_pulse )                                            
 	  begin                                                            
-	     m_axi_awaddr <= dma_wraddr;                                             
+	     m_axi_awaddr <= otl_wraddr;                                             
 	  end                                                              
 	else if (aw_ack)                             
 	  begin                                                            
@@ -314,8 +323,8 @@ module m_axi_dma
 	  begin                                                                         
 	     m_axi_wlast <= 1'b0;                                                          
 	  end                                                                           
-	else if (((write_burst_counter == BURST_LENGTH-2 && BURST_LENGTH >= 2) && wnext) || 
-		 (write_counter == dma_wr_len)) //TODO: make copy of dma_wrlen...
+	else if (((write_burst_counter == BURSTL-2 && BURSTL >= 2) && w_ack) || 
+		 (write_counter == 32'h2))
 	  begin                                                                         
 	     m_axi_wlast <= 1'b1;                                                          
 	  end                                                                           
@@ -333,31 +342,37 @@ module m_axi_dma
      begin                                                                             
 	if (~m_axi_aresetn || init_write_pulse )    
 	  begin                                                                         
-	     write_counter <= 0;                                                           
+	     write_counter <= otl_wrlen;                                                           
 	  end                                                                           
-	else if (w_ack && (write_counter != dma_wrlen-1))//TODO: make copy of dma_wrlen...                          
+	else if (w_ack && (write_counter != 0))                  
 	  begin                                                                         
-	     write_counter <= write_counter + 1;                                             
+	     write_counter <= write_counter - 1;                                             
 	  end                                                                           
 	else                                                                            
 	  write_counter <= write_counter;                                                   
      end                                                                               
 
-   assign write_burst_counter = write_counter[BURST_LENGTH_LOG-1:0];
+   //assign write_burst_counter = write_counter[BURSTL_LOG-1:0];
+   
+   always @(posedge m_axi_aclk)                                                      
+     if (~m_axi_aresetn || start_write_burst)    
+       write_burst_counter <= 0;                                                           
+     else if (w_ack && (write_burst_counter != BURSTL-1))                  
+       write_burst_counter <= write_burst_counter + 1;                                             
+     else                                                                            
+       write_burst_counter <= write_burst_counter;                                                   
    
    
    
    // wdata logic
    always @(posedge m_axi_aclk)                                                      
-     begin                                                                             
-	if (~m_axi_aresetn || init_write_pulse )                                                         
-	  m_axi_wdata <= 'b1;                                                             
-	else if (w_ack)                                                                 
-	  m_axi_wdata <= dma_wrdata;                                                   
-	else                                                                            
-	  m_axi_wdata <= m_axi_wdata;                                                       
-     end                                                                             
-
+     if (~m_axi_aresetn || init_write_pulse || w_ack)                                           
+       begin
+	  m_axi_wdata <= otl_wrdata;
+       end
+     else begin                                                                           
+	m_axi_wdata <= m_axi_wdata;                                                       
+     end
 
    //****************************
    // Write response channel
@@ -390,7 +405,7 @@ module m_axi_dma
    // Read address channel
    //****************************
 
-   ar_ack = m_axi_arready && m_axi_arvalid;
+   assign ar_ack = m_axi_arready && m_axi_arvalid;
    
    
    // arvalid logic
@@ -418,10 +433,10 @@ module m_axi_dma
      if (~m_axi_aresetn || init_read_pulse)
        m_axi_arlen <= 8'b0;
      else if (start_read_burst)
-       if(dma_rdlen - read_counter < BURST_LENGTH) //TODO: do this better...
-	 m_axi_arlen <= dma_rdlen - read_counter;
+       if(otl_rdlen - read_counter < BURSTL) //TODO: do this better...
+	 m_axi_arlen <= otl_rdlen - read_counter;
        else
-	 m_axi_arlen <= BURST_LENGTH -1;
+	 m_axi_arlen <= BURSTL -1;
      else
        m_axi_arlen <= m_axi_arlen;
 
@@ -431,7 +446,7 @@ module m_axi_dma
      begin                                                              
 	if ( ~m_axi_aresetn || init_read_pulse )                                          
 	  begin                                                          
-	     m_axi_araddr <= dma_rdaddr;                                           
+	     m_axi_araddr <= otl_rdaddr;                                           
 	  end                                                            
 	else if (ar_ack)                           
 	  begin                                                          
@@ -457,7 +472,7 @@ module m_axi_dma
 	  begin                                                             
 	     read_counter <= 0;                                                
 	  end                                                               
-	else if (r_ack && (read_counter != dma_rdlen-1)) //TODO: make copy of dma_rdlen...              
+	else if (r_ack && (read_counter != otl_rdlen-1)) //TODO: make copy of otl_rdlen...              
 	  begin                                                             
 	     read_counter <= read_counter + 1;                                   
 	  end                                                               
@@ -475,7 +490,7 @@ module m_axi_dma
 	  end                                                               
 	else if (m_axi_rvalid)                       
 	  begin                                      
-	     if (m_axi_rlast && axi_rready)          
+	     if (m_axi_rlast && m_axi_rready)          
 	       begin                                  
 	          m_axi_rready <= 1'b0;                  
 	       end                                    
@@ -495,24 +510,24 @@ module m_axi_dma
    always @ ( posedge m_axi_aclk)                                                                            
      if ( ~m_axi_aresetn )                                                                             
        begin                                                                                                 
-	  write_state      <= IDLE;                                                                
+	  write_state      <= `IDLE;                                                                
 	  start_write_burst <= 1'b0;
        end                                                                                                   
      else                                                                                                    
        case (write_state)                                                                               
 	 
-	 IDLE:                                                                                     
+	 `IDLE:                                                                                     
 	   if ( init_write_pulse )                                                      
-	     write_state  <= INIT_WRITE;                                                              
+	     write_state  <= `INIT_WRITE;                                                              
 	   else                                                                                            
-	     write_state  <= IDLE;                                                            
+	     write_state  <= `IDLE;                                                            
 	 
-	 INIT_WRITE:                                                                                       
+	 `INIT_WRITE:                                                                                       
 	   if (write_done)                                                                                
-	     write_state <= IDLE;                                                          
+	     write_state <= `IDLE;                                                          
 	   else                                                                                            
 	     begin                                                                                         
-	        write_state  <= INIT_WRITE;                                                              
+	        write_state  <= `INIT_WRITE;                                                              
 	        
 	        if (~m_axi_awvalid && ~start_write_burst && ~write_busy)                       
 	          start_write_burst <= 1'b1;                                                       
@@ -520,7 +535,7 @@ module m_axi_dma
 	          start_write_burst <= 1'b0;
 	     end                                                                                           
 	 default :                                                                                         
-	   write_state  <= IDLE;                                                              
+	   write_state  <= `IDLE;                                                              
        endcase                                                                                             
    
 
@@ -529,24 +544,24 @@ module m_axi_dma
    always @ ( posedge m_axi_aclk)                                                                            
      if ( ~m_axi_aresetn )                                                                             
        begin                                                                                                 
-	  read_state      <= IDLE;                                                                
+	  read_state      <= `IDLE;                                                                
 	  start_read_burst  <= 1'b0;                                                                   
        end                                                                                                   
      else                                                                                                    
        case (read_state)                                                                               
 	 
-	 IDLE:                                                                                     
+	 `IDLE:                                                                                     
 	   if ( init_read_pulse )
-	     read_state  <= INIT_WRITE;                                                              
+	     read_state  <= `INIT_READ;                                                              
 	   else                                                                                            
-	     read_state  <= IDLE;                                                            
+	     read_state  <= `IDLE;                                                            
 	 
-	 INIT_READ:                                                                                        
+	 `INIT_READ:                                                                                        
 	   if (read_done)                                                                                 
-	     read_state <= IDLE;                                                             
+	     read_state <= `IDLE;                                                             
 	   else                                                                                            
 	     begin                                                                                         
-	        read_state  <= INIT_READ;                                                               
+	        read_state  <= `INIT_READ;                                                               
 	        
 	        if (~m_axi_arvalid && ~start_read_burst && ~read_busy )                         
 	          start_read_burst <= 1'b1;                                                        
@@ -554,7 +569,7 @@ module m_axi_dma
 	          start_read_burst <= 1'b0;
 	     end                                                                                           
 	 default :                                                                                         
-	   read_state  <= IDLE;                                                              
+	   read_state  <= `IDLE;                                                              
        endcase                                                                                             
 
 
@@ -575,7 +590,7 @@ module m_axi_dma
 	if (~m_axi_aresetn || init_write_pulse )                                                                                 
 	  write_done <= 1'b0;                                                                                  
 	
-	else if (b_ack && (write_counter == dma_wrlen)) //TODO make copy of dma_welen in write initial phase, dma_wrlen-1?                    
+	else if (b_ack && (write_counter == 32'b0)) 
 	  write_done <= 1'b1;                                                                                  
 	else                                                                                                    
 	  write_done <= write_done;                                                                           
@@ -595,10 +610,10 @@ module m_axi_dma
    // Read done signal
    always @(posedge m_axi_aclk)                                                                              
      begin                                                                                                     
-	if (~m_axi_aresetn || init_txn_pulse )                                                                                 
+	if (~m_axi_aresetn || init_read_pulse )                                                                                 
 	  read_done <= 1'b0;                                                                                   
 	
-	else if ( r_ack && (read_counter == dma_wr_len)) //TODO: read_counter-1? 
+	else if ( r_ack && (read_counter == otl_rdlen)) //TODO: read_counter-1 
 	  read_done <= 1'b1;                                                                                   
 	else                                                                                                    
 	  read_done <= read_done;                                                                             

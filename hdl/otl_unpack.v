@@ -17,7 +17,7 @@
  */
 
 
-module dac_core
+module otl_unpack
 (
  //inputs
 
@@ -25,8 +25,6 @@ module dac_core
 
  );
    
-
 //TODO
-   
    
 endmodule
